@@ -271,7 +271,7 @@ int8_t tune;
      else  {                                          // PTT is released or not pressed
 
             if (!squelch_level) digitalWrite(mute,0); // mute audio depending on squelch level and signal strength
-            else digitalWrite(mute,(squelch_level > rssi()/10)); // 0 = open, 1 = squelch
+            else digitalWrite(mute,(squelch_level > rssi()/10)); // 0 = open, 1 = audio mute
 
             displayS();                               // display relative signal strength on lower row 
              
