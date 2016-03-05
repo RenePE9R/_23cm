@@ -11,6 +11,8 @@
  * Again, PLEASE read the README.1ST file, otherwise this code is useless!
  * 
  * Needless to say, but always necessary, use this code at your own risk.
+ * 
+ * Ported/rewritten to/for the Arduino IDE by PA3FYM.
  *
  * v0.1 March 4 2016 Initial release by PA3FYM
  *   
@@ -62,7 +64,7 @@ uint8_t escape;
 
 boolean tx = false; // if tx = false then receive, if tx = true then transmit
 int8_t last=0;
-uint32_t past; // elapsed time
+uint32_t passed; // elapsed time
 
 /* ctcss tones *10 (Hz) or 'time constants' for the Timer1 ISR.
  *  
@@ -242,39 +244,28 @@ refresh();          // build up main LCD screen after startup
 
 attachInterrupt(digitalPinToInterrupt(rotary),int1_isr,FALLING); // assign INT1 (rotary encoder)
                                                                  // use falling edge ( = active low)
-past = millis();
+passed = millis();
 
 }
 
 void loop() {                         // main loop 
 
 int8_t tune;
-
-    tune = rot_dial();                // poll rotary encoder 
-    if (tune && !tx) {
-        Serial.println(tune);
-        freq = (tune < 0? freq -= fraster : freq += fraster);
-        refresh();
-    }
-        
-    if (millis() - past > 10000) {    // check if 10 secs passed
-          past = millis();            // if yes, update 
-          EEPROMwritelong(0x00,freq); // update last freq if necessary
-          Serial.println("Freq updated !! (if necessary)");
-    }
-         
-    
+     
     tx = !digitalRead(ptt);            // poll PTT pin
+    tune = rot_dial();                 // poll rotary encoder
+    
     if (tx) { 
                                        // arrive here when PTT is pressed                             
          digitalWrite(mute,1);         // first mute the receiver
-         digitalWrite(txon,1);         // switch on TX part
+         
+    // digitalWrite(txon,1);         // switch on TX part
          
           if (tx != last) {            // if last status was 0 then RX --> TX transition
             Serial.println("Transmit!!");
             refresh();                 // PLL is programmed once, so not every poll cycle, certainly not during TX !
             last = tx;                 // last status = tx (= 1)
-          }
+          }                                     
          
      }
      
@@ -292,16 +283,30 @@ int8_t tune;
               refresh();                              // the PLL is programmed only once, so not every poll cycle
               last = 0;                               // reset last status to 0 ( = RX)
             }
-      }
 
-      if (rot_push() && !tx) menu(); // go to settings menu when rotary push button is pressed      
+            
+            if (tune) {
+               Serial.println(tune);
+               if (tune > 0) freq += fraster; else freq -= fraster; // tune frequency
+               refresh();                             // refresh display
+            }
+        
+            if (millis() - passed > 10000) {            // check if 10 secs passed
+              passed = millis();                        // if yes, update 
+              EEPROMwritelong(0x00,freq);             // update last freq if necessary
+              Serial.println("Freq updated !! (if necessary)");
+              }
+      
+
+            if (rot_push()) menu(); // go to settings menu when rotary push button is pressed      
+         }
 }
 
 void int1_isr() { // INT1 ISR, arrive here on FALLING edge of PD3 (one switch of rotary encoder)
                   // rot_dir has to be zero and check for status of PD2 (other rotary switch)
-    
-    // if (digitalRead(rotary2)) rot_dir=255; else rot_dir=1; delay(10);            
-    if (PIND & B00000100) rot_dir=255; else rot_dir=1; delay(10); // rot_dir < 0 when anti clockwise, > 0 when clockwise
+                  
+    //if (digitalRead(rotary2)) rot_dir=255; else rot_dir=1; delay(10);       
+    if (PIND & B00000100) rot_dir=255; else rot_dir=1; delay(50); // rot_dir < 0 when anti clockwise, > 0 when clockwise
 }
 
 void defaults() {                             // get default/startup values from EEPROM
@@ -342,7 +347,7 @@ void refresh() {                       // refreshes display info and programs PL
    lcd.setCursor(0,0);                 // select top line, first position 
    
    if (tx) {                           // TX active ?
-    set_freq(freq+shift);              // program PLL with TX frequency
+    set_freq(freq+shift);  // program PLL with TX frequency
     Serial.println(freq+shift);
     lcd.setCursor(0,1);                // select lower row, first position
     lcd.print("                ");     // clear lower row
@@ -380,7 +385,7 @@ int16_t sig;
         return sig;                       // publish result
 }
 
-int rot_dial() {                          // INT1 ISR handles rotary ports PD3 and PD2
+int rot_dial() {                          // INT1 ISR handles rotary ports PD3 and PD2 <-- INT1
 
         int8_t flop;
    
