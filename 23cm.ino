@@ -270,7 +270,7 @@ int8_t tune;
     if (tx) { 
                                        // arrive here when PTT is pressed                             
          digitalWrite(mute,1);         // first mute the receiver
-       //  digitalWrite(txon,1);         // switch on TX part
+         digitalWrite(txon,1);         // switch on TX part
          
           if (tx != last) {            // if last status was 0 then RX --> TX transition
             Serial.println("Transmit!!");
