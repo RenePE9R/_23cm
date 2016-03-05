@@ -11,8 +11,6 @@
  * Again, PLEASE read the README.1ST file, otherwise this code is useless!
  * 
  * Needless to say, but always necessary, use this code at your own risk.
- * 
- * Ported/rewritten to/for the Arduino IDE by PA3FYM.
  *
  * v0.1 March 4 2016 Initial release by PA3FYM
  *   
