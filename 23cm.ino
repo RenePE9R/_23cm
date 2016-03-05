@@ -306,7 +306,7 @@ void int1_isr() { // INT1 ISR, arrive here on FALLING edge of PD3 (one switch of
     if (PIND & B00000100) rot_dir=255; else rot_dir=1; delay(10); // rot_dir < 0 when anti clockwise, > 0 when clockwise
 }
 
-void defaults() {
+void defaults() {                             // get default/startup values from EEPROM
   
 uint8_t i;
 
