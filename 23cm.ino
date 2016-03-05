@@ -52,7 +52,7 @@ int8_t rot_dir; // rotary encoder direction, 0 = no action, 1 = CW, 255 = CCW
 
 // all frequencies are in kHz (extra 0's for Hz doesn't make sense with 25 kHz raster)
 uint32_t  if_freq = 69300; // 1st IF (80 - 10.7 MHz) of receiver in kHz.
-uint16_t  fref = 12000;    // reference frequency from the TCXO in kHz
+uint16_t  fref = 12000;    // PLL reference frequency in kHz
 uint8_t fraster = 25;      // raster frequency in kHz
 uint32_t freq;             // frequency in kHz  <-- float takes 1.5 kB memory extra!!
 int16_t shift = -28000;    // TX shift frequency in kHz
