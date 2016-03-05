@@ -343,7 +343,7 @@ void refresh() {                       // refreshes display info and programs PL
    lcd.setCursor(0,0);                 // select top line, first position 
    
    if (tx) {                           // TX active ?
-    set_freq(freq+shift);  // program PLL with TX frequency
+    set_freq(freq+shift);              // program PLL with TX frequency
     Serial.println(freq+shift);
     lcd.setCursor(0,1);                // select lower row, first position
     lcd.print("                ");     // clear lower row
@@ -381,7 +381,7 @@ int16_t sig;
         return sig;                       // publish result
 }
 
-int rot_dial() {                          // INT1 ISR handles rotary ports PD3 and PD2 <-- INT1
+int rot_dial() {                          // INT1 ISR handles rotary ports PD3 and PD2
 
         int8_t flop;
    
