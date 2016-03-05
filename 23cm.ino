@@ -251,7 +251,7 @@ void loop() {                         // main loop
 int8_t tune;
 
     tune = rot_dial();                // poll rotary encoder 
-    if (tune) {
+    if (tune && !tx) {
         Serial.println(tune);
         freq = (tune < 0? freq -= fraster : freq += fraster);
         refresh();
@@ -294,7 +294,7 @@ int8_t tune;
             }
       }
 
-      if (rot_push()) menu(); // go to settings menu when rotary push button is pressed      
+      if (rot_push() && !tx) menu(); // go to settings menu when rotary push button is pressed      
 }
 
 void int1_isr() { // INT1 ISR, arrive here on FALLING edge of PD3 (one switch of rotary encoder)
