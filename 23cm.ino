@@ -301,7 +301,8 @@ int8_t tune;
 
 void int1_isr() { // INT1 ISR, arrive here on FALLING edge of PD3 (one switch of rotary encoder)
                   // rot_dir has to be zero and check for status of PD2 (other rotary switch)
-                  
+    
+    // if (digitalRead(rotary2)) rot_dir=255; else rot_dir=1; delay(10);            
     if (PIND & B00000100) rot_dir=255; else rot_dir=1; delay(10); // rot_dir < 0 when anti clockwise, > 0 when clockwise
 }
 
