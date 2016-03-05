@@ -78,7 +78,6 @@ uint16_t tones[] = {0,670,693,719,744,770,797,825,854,885,915,948,974,1000,1035,
                     1148,1188,1230,1273,1318,1365,1413,1462,1514,1567,1622,1679,1738,1799,
                     1862,1928,2035,2107,2181,2257,2336,2418,2503}; // 40 entries (0 - 39)                  
 
-uint16_t toon;   // ctcss tone frequency in Hz*10  note ;-) 'tone' is an Arduino function
 uint16_t count1; // Timer1 counter value
 
 /*
@@ -259,7 +258,7 @@ int8_t tune;
                                        // arrive here when PTT is pressed                             
          digitalWrite(mute,1);         // first mute the receiver
          
-         digitalWrite(txon,1);         // switch on TX part
+    // digitalWrite(txon,1);         // switch on TX part
          
           if (tx != last) {            // if last status was 0 then RX --> TX transition
             Serial.println("Transmit!!");
@@ -516,8 +515,7 @@ int8_t flap,i;
                     TCCR1B = 2;                                    // and . . . start Timer1
                }
               Serial.print("Tone nr for TCCR1B : ");Serial.println(i);    
-             // EEPROMwritelong(0x0c,toon); // store tone value
-              EEPROM.update(0x0e,i);        // store tone number
+              EEPROM.update(0x0e,i);                               // store tone number
              }   
           break;
 
@@ -538,7 +536,7 @@ int8_t flap,i;
               } // while
               lcd.clear();
               EEPROMwritelong(0x04,fref); // store in eeprom
-              init_pll(); // initialize PLL with (new) reference frequency
+              init_pll();             // initialize PLL with (new) reference frequency
              }
           break;
 
@@ -547,7 +545,7 @@ int8_t flap,i;
              if (rot_push()) {
               escape++;                      // set escape to fall into the main loop
               Serial.println("Escape!!");
-              refresh();
+              refresh();                     // refresh display to 'normal'
               }
           break;
     }
@@ -600,9 +598,8 @@ uint16_t calc_count1(uint8_t i) { // calculate and load Timer1 value derived fro
  *
  * We enter this routine with the ctcss tone number. E.g. 0 = 0 Hz = no ctcss, 9 = 88.5 Hz
  *
- * After some maths it can be derived that the amount of counter ticks = 1e7/toon
+ * After some maths it can be derived that the amount of counter ticks = 1e7/tone-frequency
  *
- * 'tone' can't be used because this is an Arduino function/routine, so 'toon' is used instead
 */ 
 
   if (!i) TCCR1B = 0;                        // when no ctcss (i = 0) disable Timer1
