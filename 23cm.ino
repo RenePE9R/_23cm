@@ -1,3 +1,10 @@
+/* this is an slightly different version than from Remco FYM.
+ * Best is to use the code from FYM, and copy my changes.
+ * i changed some IO and the direction from the encoder in the code.
+ * improved the s meter timer
+ * made boundries in all the settings.
+ * Boundries in TX >1240000 <1300000
+ * 
 
 /* This code is used in conjunction with PE1JPD's 23cm transceiver
  * (http://www.pe1jpd.nl/index.php/23cm_nbfm)
@@ -36,25 +43,28 @@
 const byte mute =   A0; // mute RX audio
 const byte Smeter = A1; // RSSI pin of MC3362
 const byte txon =   A2; // switches TX part of transceiver
-const byte clk =    A3; // ADF4113HV clock 
+const byte clk =    A5; // ADF4113HV clock 
 const byte data =   A4; // ADF4113HV data
-const byte le =     A5; // ADF4113HV latch enable
+const byte le =     A3; // ADF4113HV latch enable
 
 // I/O ports for 'outside' controls, all active low
-const byte rotary = 3; // rotary switch INT1
-const byte rotary2 = 2; // other rotary switch
-const byte rotary_push = 9; // push button on rotary encoder
-const byte ptt = 8; // PTT (Push To Talk) 
-const byte ctcss_pin = 13; // ctcss signal pin
+const byte rotary       = 3; // rotary switch INT1
+const byte rotary2      = 2; // other rotary switch
+const byte rotary_push  = 9; // push button on rotary encoder
+const byte ptt          = 8; // PTT (Push To Talk) 
+const byte ctcss_pin    = 13; // ctcss signal pin
 
 int8_t rot_dir; // rotary encoder direction, 0 = no action, 1 = CW, 255 = CCW
 
+//for S meter subroutine. define here to keep the values.
+int8_t   level,maxlevel,dlay;       // level max memory, delay & speed for peak return
+uint32_t lastT;//=0;
 
 // all frequencies are in kHz (extra 0's for Hz doesn't make sense with 25 kHz raster)
-uint32_t  if_freq; // = 69300; // 1st IF (80 - 10.7 MHz) of receiver in kHz.
-uint16_t  fref; // = 12000;    // PLL reference frequency in kHz
+uint32_t  if_freq;// = 69300; // 1st IF (80 - 10.7 MHz) of receiver in kHz.
+uint16_t  fref ;// = 13000;    // PLL reference frequency in kHz
 uint8_t   fraster = 25;    // raster frequency in kHz
-uint32_t  freq;            // frequency in kHz  <-- float takes 1.5 kB memory extra!!
+uint32_t  freq;// = 1299000;            // frequency in kHz  <-- float takes 1.5 kB memory extra!!
 
 int16_t  shifts[] = {0,-6000,-28000}; // common repeater shifts in kHz in Europe, 0 = no shift (simplex)
 
@@ -101,6 +111,7 @@ byte block[8][8]=
 
 LiquidCrystal lcd(11,10,4,5,6,7);  // RS, EN, D4, D5, D6, D7  initialize LCD display
 
+//**************************************************************************************************8
 void init_pll() { //initialize PLL, raster is (still) fixed to 25 kHz
 
 #ifdef debug
@@ -138,6 +149,7 @@ void init_pll() { //initialize PLL, raster is (still) fixed to 25 kHz
 
  #ifdef debug
   Serial.println(freq);
+  Serial.println(fref);
  #endif
  
   if (freq < 1240000 || freq > 1300000) { // if eeprom contents are out of range
@@ -182,6 +194,7 @@ void set_freq(uint32_t freq) {          // set PLL frequency with loading AB cou
 }
 
 
+//**************************************************************************************************8
 void writePLL(uint32_t pll_word) {      // this routine clocks PLL word (24 bits long) into the PLL
                                         // from msb (bit23) to lsb (bit0)
 
@@ -211,6 +224,7 @@ void writePLL(uint32_t pll_word) {      // this routine clocks PLL word (24 bits
     digitalWrite(le,0);
 }
 
+//**************************************************************************************************8
 void setup () { 
   
 digitalWrite(mute,0); // first thing to do: mute audio
@@ -237,11 +251,16 @@ DDRB  |= B00101100; // all PB5,3,2 ports are outputs, leave PB7-6 untouched, PB4
 PORTB |= B00011111; // set pull up resistors for PB5-PB0, leave PB7-6 untouched, PB5 (ctcss) = low
 
 lcd.begin(16,2);    // we have a 16 column, 2 row LCD display
-lcd.print("Hello Dude!"); //
+lcd.clear();
+delay(300);
+lcd.print("PE9R 23cm zender"); //
+lcd.setCursor(0,1);
+lcd.print("             ");
+   
 
 //for( int i=0 ; i<8 ; i++) lcd.createChar(i,block[i]);
 
-delay(1000);
+delay(2000);
 lcd.clear();
 
 defaults();         // first fetch last settings from eeprom or store defaults in eeprom
@@ -254,7 +273,9 @@ attachInterrupt(digitalPinToInterrupt(rotary),int1_isr,FALLING); // assign INT1 
 passed = millis();
 
 }
-
+//**************************************************************************************************8
+//**************************************************************************************************8
+//**************************************************************************************************8
 void loop() {                         // main loop 
 
 int8_t tune;
@@ -262,7 +283,7 @@ int8_t tune;
     tx = !digitalRead(ptt);            // poll PTT pin
     tune = rot_dial();                 // poll rotary encoder
     
-    if (tx) { 
+    if (tx && freq >1240000 && freq < 1300000 ) { 
                                        // arrive here when PTT is pressed                             
          digitalWrite(mute,1);         // first mute the receiver
          
@@ -296,6 +317,9 @@ int8_t tune;
             if (tune) {
                Serial.println(tune);
                if (tune > 0) freq += fraster; else freq -= fraster; // tune frequency
+               constrain(freq,1240000,1300000);
+              // if (freq < 1240000) freq = 1240000;
+              // if (freq > 1300000) freq = 1300000;
                refresh();                             // refresh display
             }
         
@@ -309,14 +333,18 @@ int8_t tune;
             if (rot_push()) menu(); // go to settings menu when rotary push button is pressed      
          }
 }
+//**************************************************************************************************8
+//**************************************************************************************************8
+//**************************************************************************************************8
 
 void int1_isr() { // INT1 ISR, arrive here on FALLING edge of PD3 (one switch of rotary encoder)
                   // rot_dir has to be zero and check for status of PD2 (other rotary switch)
                   
     //if (digitalRead(rotary2)) rot_dir=255; else rot_dir=1; delay(10);       
-    if (PIND & B00000100) rot_dir=255; else rot_dir=1; delay(50); // rot_dir < 0 when anti clockwise, > 0 when clockwise
+    if (PIND & B00000100) rot_dir=1; else rot_dir=255; delay(50); // rot_dir < 0 when anti clockwise, > 0 when clockwise
 }
 
+//**************************************************************************************************8
 void defaults() {                             // get default/startup values from EEPROM:
                                               // 0x00 - 0x03 = frequency in kHz
                                               // 0x04 - 0x07 = PLL ref frequency in kHz
@@ -346,7 +374,7 @@ uint8_t i;
      else calc_count1(i);                     // calculate Timer1 counter value from tone number
                
      squelch_level = EEPROM.read(0x10);        // squelch level is uint8 --> 1 byte
-   // Serial.println(squelch_level);
+    Serial.println(squelch_level);
      if (squelch_level <0 || squelch_level > 9) { // sq level must be between 0 - 9
       squelch_level = 0;
       EEPROM.update(0x10,squelch_level);
@@ -360,6 +388,7 @@ uint8_t i;
 
 }
 
+//**************************************************************************************************8
 void refresh() {                       // refreshes display info and programs PLL
    uint16_t kHz;
    
@@ -377,6 +406,7 @@ void refresh() {                       // refreshes display info and programs PL
     
     lcd.setCursor(0,0);                // select top line, first position 
     lcd.print(tx? (freq+shifts[kHz])/1000 : freq/1000);lcd.print("."); // print frequency in MHz.
+   // Serial.print(tx? (freq+shifts[kHz])/1000 : freq/1000);lcd.print("."); // print frequency in MHz.
     
     kHz = freq % 1000;                 // isolate kHz
 
@@ -386,8 +416,10 @@ void refresh() {                       // refreshes display info and programs PL
     lcd.print(kHz);                    // print kHz portion of frequency 
     
     lcd.print(" MHz  "); lcd.print(tx?"TX":"RX"); // tail with remaining characters  
+    Serial.print(" MHz  "); lcd.print(tx?"TX":"RX"); // tail with remaining characters  
 }
 
+//**************************************************************************************************8
 int16_t rssi() {                       // poll analog pin A1 (PC1) connected to rssi pin MC3362
 
 uint8_t sig;
@@ -426,6 +458,7 @@ int rot_push() {                          // rotary push button pressed?
         return 0x00;                      // no, return 0
 }
 
+//**************************************************************************************************8
 void menu() {                             // with rotary dial select menu item, push to change item
   
   int8_t flop,item=0;
@@ -435,6 +468,7 @@ void menu() {                             // with rotary dial select menu item, 
         while (!escape) {
            lcd.setCursor(0,0);
            lcd.print("Menu: "); 
+           Serial.print("Menu: ");
            menu_item(item);               // display item
 
            flop = rot_dial();
@@ -448,6 +482,7 @@ void menu() {                             // with rotary dial select menu item, 
         escape=0;       
 }      
 
+//**************************************************************************************************8
 void menu_item(uint8_t item) {            // deal with submenus
 
 int8_t flap,i;
@@ -458,6 +493,7 @@ int8_t flap,i;
 
           case 0:
              lcd.print("Squelch ");
+             Serial.print("Squelch ");
               if (rot_push()) {           // poll rotary push button 
                                           // if pushed ... 
                 while (!rot_push()) {     // hang until pushed again
@@ -465,13 +501,14 @@ int8_t flap,i;
                   if (flap) {
                    
                    if (flap > 0) squelch_level++; else squelch_level--;
-                   if (squelch_level < 0) squelch_level = 0; // 10 levels are enough
-                   if (squelch_level > 9) squelch_level = 9;
+                   if (squelch_level < 0 ||squelch_level > 240 ) squelch_level = 0; // 10 levels are enough
+                   if (squelch_level > 9 && squelch_level < 240) squelch_level = 9;
                    delay(50);
                   }
 
                  lcd.setCursor(0,1);lcd.print(squelch_level);
                  Serial.print(rssi());Serial.print(" ");Serial.println(squelch_level);
+              
                  delay(50);
                  if (!squelch_level) digitalWrite(mute,0);
                   else digitalWrite(mute,(squelch_level > rssi()/10));
@@ -484,6 +521,7 @@ int8_t flap,i;
 
           case 1:
              lcd.print("TX Shift");
+             Serial.print("TX Shift");
              
              if (rot_push()) {                    // poll rotary push button
               i = EEPROM.read(0x0b);              // if pressed, read TX shift nr from EEPROM
@@ -511,8 +549,7 @@ int8_t flap,i;
 
           case 2:
              lcd.print("Ctcss   ");
-             
-             if (rot_push()) {
+            if (rot_push()) {
               i = EEPROM.read(0x0e);                              // 3rd byte in ctcss long contains tone number
  
               while (!rot_push()) {                               // pushing the rotary button exits
@@ -523,7 +560,6 @@ int8_t flap,i;
                    if (i > 39) i = 0;                             // tones[] has 40 entries (0 - 39)
                    if (i < 0) i = 39; 
                    
-            //       Serial.print(tones[i]);Serial.print(" ");Serial.println(i);
                    delay(50);
                 }
                 lcd.setCursor(0,1);
@@ -547,6 +583,7 @@ int8_t flap,i;
 
           case 3:
              lcd.print("PLL Fref");
+             Serial.print("PLL Fref");
              if (rot_push()) {
               
               while (!rot_push()) {
@@ -554,6 +591,8 @@ int8_t flap,i;
                 if (flap) {
                   
                    if (flap > 0) fref +=100; else fref -=100; // PLL ref freq goes in 100 kHz portions
+                   if (fref < 0 ||  fref > 65000) fref = 100;
+                   if (fref> 50000) fref = 50000;
                    delay(50);
                 }
                 if (fref < 10000) lcd.print(" ");   // if Fref < 10 MHz print preceeding " "
@@ -567,6 +606,7 @@ int8_t flap,i;
 
           case 4:
              lcd.print("First IF");
+             Serial.print("First IF");
              if (rot_push()) {
               
               while (!rot_push()) {
@@ -574,6 +614,8 @@ int8_t flap,i;
                 if (flap) {
                   
                    if (flap > 0) if_freq +=100; else if_freq -=100; // 1st IF freq goes in 100 kHz portions
+                   if (if_freq < 0 ||  if_freq> 165000) if_freq = 100;
+                   if (if_freq> 150000) if_freq = 150000;
                    delay(50);
                 }
                 lcd.setCursor(0,1);
@@ -589,6 +631,7 @@ int8_t flap,i;
        
           case 5:
              lcd.print("Exit    ");
+             Serial.print("Exit    ");
              if (rot_push()) {
               escape++;                      // set escape to fall into the main loop
               Serial.println("Escape!!");
@@ -599,6 +642,7 @@ int8_t flap,i;
     }
 }
 
+//**************************************************************************************************8
 void EEPROMwritelong(uint16_t address, int32_t value) { // stores a long int (32 bits) into EEPROM
                                                         // byte3 = MSByte, byte0 = LSByte
 uint8_t flop;
@@ -656,6 +700,7 @@ uint16_t calc_count1(uint8_t i) { // calculate and load Timer1 value derived fro
                                              // so, perhaps write a shorter routine?                                             
   }
 
+//**************************************************************************************************8
 void init_Timer1() { // deliberately chosen NOT to include TimerOne.h to have shorter code
                      //
                      // The Timer1 setup process is explained in the link below
@@ -674,21 +719,20 @@ void init_Timer1() { // deliberately chosen NOT to include TimerOne.h to have sh
      interrupts();                  // enable interrupts 
 }
 
+//**************************************************************************************************8
 void displayS() {                   // display relative S-signalbar in the lower row during RX
 
-int8_t   level,maxlevel,dlay;       // level max memory, delay & speed for peak return
-uint32_t lastT=0;
+
 
 byte  fill[]={0x20,0x00,0x01,0x02,0x03,0xff};      // character used for fill 
 byte  peak[]={0x20,0x00,0x04,0x05,0x06,0x07,0x20}; // character used for peak 
 
 
-#define t_refresh    100            // msec bar refresh rate
+#define t_refresh    100           // msec bar refresh rate
 #define t_peakhold   5*t_refresh    // msec peak hold time before return
 
-  if (millis() < lastT) return;   // determine 1 ms time stamps
-  lastT += t_refresh;   
- 
+  if (millis() < lastT) return;   // determine 1 ms time stamps  
+  lastT += t_refresh;  
   level = sig_level << 1;           // max rssi() is 73 (@FYM), so multiply with 2 
                                     // for full scale (estimated guess ;-)                                
     
@@ -699,12 +743,12 @@ byte  peak[]={0x20,0x00,0x04,0x05,0x06,0x07,0x20}; // character used for peak
   
     int8_t f = constrain(level    -i*5,0,5 ); // constrain values 
     int8_t p = constrain(maxlevel -i*5,0,6 );
-    
     if (f) lcd.write(fill[f]); else lcd.write(peak[p]); // depending on phenomenon write bars on the lower row
   }
-  
+ 
   if (level > maxlevel) {            // if current level > maxlevel
-       
+  Serial.print(sig_level);
+  Serial.println(" A1");
     maxlevel = level;                // save max level
     dlay = -t_peakhold/t_refresh;    // Starting delay value. negative = peak is stable
   }
@@ -716,6 +760,5 @@ byte  peak[]={0x20,0x00,0x04,0x05,0x06,0x07,0x20}; // character used for peak
     if (maxlevel < 0) maxlevel=0; else dlay++; // keep maxlevel >=0 , and when maxlevel decays increase delay
   }
 }
-
 
 
