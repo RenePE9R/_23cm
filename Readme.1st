@@ -5,9 +5,12 @@
  * Analog ports (PC5-PC0 viz. A5-A0) of PCB version 1 differ.
  * 
  * Please, check your PCB version first!
- * Remco PA3FYM
- * this is my configuration as I have build it. 
- * Remco's pinout is between ().
+ * only make an modification if you know what you are doing.
+ * modification is for your own risk.
+ * 
+ * 
+ * this is my configuration as I have build it for PCB version V2.1 
+ * Remco's (v1.xx) pinout is between ().
  *
  *
  *  Arduino Nano/Mini           original               Arduino Nano/Mini
@@ -28,7 +31,7 @@
  *  NC (7)          (AIN1) PD7 13    16 PB2 (SS//OC1B)       NC   //10
  *  D10(8)          (ICP1) PB0 14    15 PB1 (OC1A)           D11  //9
  * 
- *  *! If you have board version 1 (like I have) change the pinning for Port C to:
+ *  *! If you have board version 1 (like Remco has) change the pinning for Port C to:
  * 
  *      28 PC5 (ADC5/SCL)       A5   
  *      27 PC4 (ADC4/SDA)       A4   
